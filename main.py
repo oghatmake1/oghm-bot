@@ -5,7 +5,7 @@ from discord import app_commands
 import asyncio
 import enum
 
-#python-nsfw
+#nsfw modules
 import PIL.Image as Image
 from nsfw_detector.model import Model
 
@@ -27,6 +27,7 @@ async def system(cmd):
     stdout=asyncio.subprocess.DEVNULL,
     stderr=asyncio.subprocess.DEVNULL
     )
+
 nsfwcount = 0
 blackfile = "./blacklist.csv"
 blocked = blacklistedids(blackfile)
