@@ -159,14 +159,7 @@ async def on_ready():
     app_info = await bot.application_info()
     bot_owner = app_info.owner
     print(f'Logged in as {bot.user} (ID: {bot.user.id})')
-    for guild in bot.guilds:
-        print(guild.name)
-        print(guild.id)
-        print(guild.owner.name)
-        try:
-            print(guild.icon.url)
-        except:
-            pass
+
 @bot.event
 async def on_member_join(member):
     if member.id in blocked and member.bot and member.id != ctx.guild.owner_id:
