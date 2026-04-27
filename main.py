@@ -1,7 +1,17 @@
+#discord.py
 import discord
 from discord.ext import commands
 from discord import app_commands
 import asyncio
+import enum
+
+#python-nsfw
+import PIL.Image as Image
+from nsfw_detector.model import Model
+
+#other
+from requests import get
+import os
 
 # Load Blacklisted IDs
 def blacklistedids(file="./blacklist.csv"):
@@ -11,14 +21,24 @@ def blacklistedids(file="./blacklist.csv"):
     except FileNotFoundError:
         return []
 
+async def system(cmd):
+    await asyncio.create_subprocess_shell(
+    cmd,
+    stdout=asyncio.subprocess.DEVNULL,
+    stderr=asyncio.subprocess.DEVNULL
+    )
+nsfwcount = 0
 blackfile = "./blacklist.csv"
 blocked = blacklistedids(blackfile)
 bot_owner = None
 last_interaction_user = None
-print(blocked)
+nsfwthreshold = 0.2
 # Bot Setup
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
+
+def is_owner(interaction: discord.Interaction) -> bool:
+    return interaction.user == bot_owner
 
 # Slash Commands
 @bot.tree.command(
@@ -26,41 +46,73 @@ bot = commands.Bot(command_prefix="!", intents=intents)
     description="Suggest a bot to be added to blacklist"
     )
 async def suggest(interaction: discord.Interaction, bot_id: str):
-    botid = float(bot_id)
-    if botid < 500000:
+    botid = int(bot_id)
+    if botid < 500000 or botid == bot_owner.id:
         await interaction.response.send_message("Not funny lil bro",
                                                 ephemeral=True
                                                 )
-        return
+    if botid in blocked:
+        await interaction.response.send_message("bot is already in the blacklist",
+                                                ephemeral=True
+                                                )
+    else:
+        with open("./suggestions.txt", "at") as f:
+            f.write(str(bot_id) + "\n")
+            await bot_owner.send(bot_id)
+            await interaction.response.send_message(
+                f"Added bot id: {bot_id} to suggestions.txt", ephemeral=True
+            )
 
-    with open("./suggestions.txt", "at") as f:
-        f.write(str(bot_id) + "\n")
-        await bot_owner.send(bot_id)
-
-    await interaction.response.send_message(
-        f"Added bot id: {bot_id} to suggestions.txt", ephemeral=True
-    )
+class managementcomm(enum.Enum):
+    add = 1
+    ls = 2
 
 @bot.tree.command(
-    name="addbot",
+    name="bm",
     description="owner only"
     )
-async def add(interaction: discord.Interaction, bot_id: str):
+
+@app_commands.check(is_owner)
+async def add(interaction: discord.Interaction, sel: managementcomm,  snow: str):
     if interaction.user != bot_owner:
-        return
-    botid = float(bot_id)
-    if botid < 500000:
-        await interaction.response.send_message("Not funny lil bro",
-                                                ephemeral=True
-                                                )
-        return
+        await interaction.response.send_message(
+            f"this is for owner only and your not them",
+            ephemeral=True
+        )
+    else:
+        match sel.value:
+            case 1:
+                botid = int(snow)
+                if botid < 500000:
+                    await interaction.response.send_message("Not funny lil bro",
+                                                        ephemeral=True
+                                                        )
+                if botid in blocked:
+                    await interaction.response.send_message("bot is already in the blacklist",
+                                                            ephemeral=True
+                                                            )
 
-    with open(blackfile, "at") as f:
-        f.write("," + str(bot_id))
+                    with open(blackfile, "at") as f:
+                        f.write("," + str(snow))
 
-    await interaction.response.send_message(
-        f"Added bot id: {bot_id} to blacklist.csv"
-    )
+                await interaction.response.send_message(
+                    f"Added bot id: {snow} to blacklist.csv"
+                )
+    
+            case 2:
+                serv = int(rep)
+                guild = bot.get_guild(serv)
+                if guild is None:
+                    await interaction.response.send_message(
+                        "i cant leave a server im not in",
+                        ephemeral=True
+                    )
+                else:
+                    await guild.leave()
+                    await interaction.response.send_message(
+                    f"Left {guild.name}",
+                    ephemeral=True
+                    )
 
 @bot.tree.command(
     name="status",
@@ -86,17 +138,16 @@ async def remall(interaction: discord.Interaction, user: discord.Member):
     else:
         await interaction.response.send_message(
             "You dont have permission to use this command",
-            ephemeral=True
-            )
+            ephemeral=True)
 
 @bot.tree.command(
     name="purge",
     description="Purges all messages")
-async def remall(interaction: discord.Interaction, user: discord.Member):
+async def purge(interaction: discord.Interaction):
     if interaction.user.guild_permissions.manage_messages:
         deleted = await interaction.channel.purge(limit=200)
         await interaction.response.send_message(
-            f'Purge {len(deleted)} message(s)',
+            f'Purged {len(deleted)} message(s)',
             ephemeral=True)
     else:
         await interaction.response.send_message(
@@ -124,8 +175,14 @@ async def on_ready():
     app_info = await bot.application_info()
     bot_owner = app_info.owner
     print(f'Logged in as {bot.user} (ID: {bot.user.id})')
-
-
+    for guild in bot.guilds:
+        print(guild.name)
+        print(guild.id)
+        print(guild.owner.name)
+        try:
+            print(guild.icon.url)
+        except:
+            pass
 @bot.event
 async def on_member_join(member):
     if member.id in blocked and member.bot and member.id != ctx.guild.owner_id:
@@ -137,9 +194,7 @@ async def on_member_join(member):
 @bot.event
 async def on_message(message):
     # Ignore messages from self
-    if message.author == bot.user:
-        return
-    else:
+    if message.author != bot.user:
         user = message.author
 
         # Delete blocked bot messages
@@ -167,7 +222,51 @@ async def on_message(message):
                     ", ".join(f"{u.name} ({u.id})" for u in suspects) +
                     f" prime suspect: " + str(last_interaction_user.id)
                  )
-
+    if message.attachments and not message.channel.nsfw:
+        net = Model()
+        for i in message.attachments:
+            ext = i.url.split(".")[-1].split("?")[0].lower()
+            filename = "temp"+"."+ext
+            prename = "sdlkajhch.dfsaojlnjkcxzzxclzxjknn"
+            newext = ".jpg"
+            match ext:
+                case ("gif" | "apng" | "webp" | "avif" | "heif" | "heic" | "mng" | "jxl" | "tiff"):
+                    await system(f'ffmpeg -i {filename} -vf "scale=128:128,tile=8x8" -frames:v 1 {filename}{newext}')
+                    prename = filename
+                    filename += newext
+                case ("mp4" | "mkv" | "avi" | "mov" | "webm" | "flv" | "mpeg" | "mpg" | "3gp" | "ogv" | "ts" | "m2ts"):
+                    await system(f'ffmpeg -i {filename} -vf "scale=128:128,tile=9999999x2" -frames:v 1 {filename}{newext}')
+                    prename = filename
+                    filename += newext
+                case _:
+                    prename = filename
+                    
+            with open(filename, "w+b") as f:
+                f.write(get(i.url).content)
+                try:
+                    if f.read() == open("pp.png", "rb").read():
+                        await message.delete()
+                    elif f.read() == open("ppsamp.png", "rb").read():
+                        await message.delete()
+                except FileNotFoundError:
+                    pass
+            results = net.predict(filename)
+            try:
+                if results[filename]['Score'] >= nsfwthreshold:
+                    await message.delete()
+                    if message.guild.id != 1483236925509865552:
+                        nsfwcount += 1
+                        with open("stats", "w+b"):
+                            f.write(str(nsfwcount))
+            except KeyError:
+                pass
+            print(results)
+            os.remove(filename)
+            try:
+                os.remove(prename)
+            except FileNotFoundError:
+                pass
+    #match message.content:
     # Ensure commands still work
     await bot.process_commands(message)
 
