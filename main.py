@@ -220,7 +220,7 @@ async def on_message(message):
                     prename = filename
                     filename += newext
                 case ("mp4" | "mkv" | "avi" | "mov" | "webm" | "flv" | "mpeg" | "mpg" | "3gp" | "ogv" | "ts" | "m2ts"):
-                    await system(f'ffmpeg -i {filename} -vf "scale=128:128,tile=9999999x2" -frames:v 1 {filename}{newext}')
+                    await system(f'ffmpeg -i {filename} -vf "scale=128:128,tile=99x99" -frames:v 1 {filename}{newext}')
                     prename = filename
                     filename += newext
                 case _:
