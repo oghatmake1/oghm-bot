@@ -1,0 +1,3 @@
+pip install discord
+pip install pillow
+pip install NSFWDetection
