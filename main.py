@@ -12,6 +12,7 @@ from nsfw_detector.model import Model
 #other
 from requests import get
 import os
+import traceback
 
 # Load Blacklisted IDs
 def blacklistedids(file="./blacklist.csv"):
@@ -66,7 +67,6 @@ async def suggest(interaction: discord.Interaction, bot_id: str):
 
 class managementcomm(enum.Enum):
     add = 1
-    ls = 2
 
 @bot.tree.command(
     name="bm",
@@ -99,21 +99,6 @@ async def add(interaction: discord.Interaction, sel: managementcomm,  snow: str)
                 await interaction.response.send_message(
                     f"Added bot id: {snow} to blacklist.csv"
                 )
-    
-            case 2:
-                serv = int(rep)
-                guild = bot.get_guild(serv)
-                if guild is None:
-                    await interaction.response.send_message(
-                        "i cant leave a server im not in",
-                        ephemeral=True
-                    )
-                else:
-                    await guild.leave()
-                    await interaction.response.send_message(
-                    f"Left {guild.name}",
-                    ephemeral=True
-                    )
 
 @bot.tree.command(
     name="status",
@@ -162,11 +147,9 @@ async def purge(interaction: discord.Interaction):
     description="returns the bots source code"
     )
 async def sc(interaction: discord.Interaction):
-    # Send the file as a response to the interaction
     await interaction.response.send_message(
         "https://github.com/oghatmake1/oghm-bot", 
-        ephemeral=True
-        )
+        ephemeral=True)
 
 # Events
 @bot.event
@@ -223,6 +206,7 @@ async def on_message(message):
                     ", ".join(f"{u.name} ({u.id})" for u in suspects) +
                     f" prime suspect: " + str(last_interaction_user.id)
                  )
+
     if message.attachments and not message.channel.nsfw:
         net = Model()
         for i in message.attachments:
@@ -255,7 +239,7 @@ async def on_message(message):
             try:
                 if results[filename]['Score'] >= nsfwthreshold:
                     await message.delete()
-                    if message.guild.id != 1483236925509865552:
+                    if message.guild.id != 1483236925509865552: # this is the test server
                         nsfwcount += 1
                         with open("stats", "w+b"):
                             f.write(str(nsfwcount))
@@ -268,14 +252,12 @@ async def on_message(message):
             except FileNotFoundError:
                 pass
     #match message.content:
-    # Ensure commands still work
     await bot.process_commands(message)
 
 
 
 @bot.event
 async def on_error(event_method, *args, **kwargs):
-    import traceback
 
     # Get bot owner
     app_info = await bot.application_info()
@@ -297,5 +279,6 @@ async def on_error(event_method, *args, **kwargs):
 async def on_interaction(interaction: discord.Interaction):
     global last_interaction_user
     last_interaction_user = interaction.user
+
 
 bot.run(open("./token", "rt").read())
