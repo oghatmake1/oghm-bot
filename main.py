@@ -22,6 +22,47 @@ def blacklistedids(file="./blacklist.csv"):
     except FileNotFoundError:
         return []
 
+def checkimage(url):
+    ext = url.split(".")[-1].split("?")[0].lower()
+    filename = "temp"+"."+ext
+    prename = ""
+    newext = ".png"
+    match ext:
+        case ("gif" | "apng" | "webp" | "avif" | "heif" | "heic" | "mng" | "jxl" | "tiff"):
+            os.system(f'ffmpeg -i {filename} -vf "scale=128:128,tile=8x8" -frames:v 1 {filename}{newext}')
+            prename = filename
+            filename += newext
+        case ("mp4" | "mkv" | "avi" | "mov" | "webm" | "flv" | "mpeg" | "mpg" | "3gp" | "ogv" | "ts" | "m2ts"):
+            os.system(f'ffmpeg -i {filename} -vf "scale=128:128,tile=99x99" -frames:v 1 {filename}{newext}')
+            prename = filename
+            filename += newext
+        case _:
+            prename = filename
+                
+    with open(filename, "w+b") as f:
+        f.write(get(url).content)
+        results = net.predict(filename)
+        try:
+            if f.read() == open("pp.png", "rb").read():
+                results = 1
+            elif f.read() == open("ppsamp.png", "rb").read():
+                results = 1
+        except FileNotFoundError:
+            pass
+    
+    try:
+        score = results[filename]['Score']
+        final = score >= nsfwthreshold
+    except KeyError:
+        final = 0
+    print(results)
+    os.remove(filename)
+    try:
+        os.remove(prename)
+    except FileNotFoundError:
+        pass
+    return final
+
 async def system(cmd):
     await asyncio.create_subprocess_shell(
     cmd,
@@ -203,47 +244,8 @@ async def on_message(message):
     if message.attachments and not message.channel.nsfw:
         net = Model()
         for i in message.attachments:
-            ext = i.url.split(".")[-1].split("?")[0].lower()
-            filename = "temp"+"."+ext
-            prename = "sdlkajhch.dfsaojlnjkcxzzxclzxjknn"
-            newext = ".jpg"
-            match ext:
-                case ("gif" | "apng" | "webp" | "avif" | "heif" | "heic" | "mng" | "jxl" | "tiff"):
-                    await system(f'ffmpeg -i {filename} -vf "scale=128:128,tile=8x8" -frames:v 1 {filename}{newext}')
-                    prename = filename
-                    filename += newext
-                case ("mp4" | "mkv" | "avi" | "mov" | "webm" | "flv" | "mpeg" | "mpg" | "3gp" | "ogv" | "ts" | "m2ts"):
-                    await system(f'ffmpeg -i {filename} -vf "scale=128:128,tile=99x99" -frames:v 1 {filename}{newext}')
-                    prename = filename
-                    filename += newext
-                case _:
-                    prename = filename
-                    
-            with open(filename, "w+b") as f:
-                f.write(get(i.url).content)
-                try:
-                    if f.read() == open("pp.png", "rb").read():
-                        await message.delete()
-                    elif f.read() == open("ppsamp.png", "rb").read():
-                        await message.delete()
-                except FileNotFoundError:
-                    pass
-            results = net.predict(filename)
-            try:
-                if results[filename]['Score'] >= nsfwthreshold:
-                    await message.delete()
-                    if message.guild.id != 1483236925509865552: # this is the test server
-                        nsfwcount += 1
-                        with open("stats", "w+b"):
-                            f.write(str(nsfwcount))
-            except KeyError:
-                pass
-            print(results)
-            os.remove(filename)
-            try:
-                os.remove(prename)
-            except FileNotFoundError:
-                pass
+            if checkimage(i.url):
+                await message.delete()
     #match message.content:
     await bot.process_commands(message)
 
@@ -268,6 +270,11 @@ async def on_error(event_method, *args, **kwargs):
 
     # Optional: print locally too
     print(f"Error in event {event_method}:\n{tb}")
+
+async def on_member_update(_, after):
+    if checkimage(after.avatar.url):
+        await after.guild.owner.send(
+                "Possible NSFW avatar on " + after.name)
 
 async def on_interaction(interaction: discord.Interaction):
     global last_interaction_user
