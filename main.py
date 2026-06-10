@@ -106,40 +106,36 @@ async def suggest(interaction: discord.Interaction, bot_id: str):
                 f"Added bot id: {bot_id} to suggestions.txt", ephemeral=True
             )
 
-class managementcomm(enum.Enum):
-    add = 1
-
 @bot.tree.command(
     name="bm",
     description="owner only"
     )
 
 @app_commands.check(is_owner)
-async def add(interaction: discord.Interaction, sel: managementcomm,  snow: str):
+async def add(interaction: discord.Interaction,  snow: str):
     if interaction.user != bot_owner:
         await interaction.response.send_message(
             f"this is for owner only and your not them",
             ephemeral=True
         )
     else:
-        match sel.value:
-            case 1:
-                botid = int(snow)
-                if botid < 500000:
-                    await interaction.response.send_message("Not funny lil bro",
-                                                        ephemeral=True
-                                                        )
-                if botid in blocked:
-                    await interaction.response.send_message("bot is already in the blacklist",
-                                                            ephemeral=True
-                                                            )
+        botid = int(snow)
+        if botid < 500000:
+            await interaction.response.send_message("Not funny lil bro",
+                                                    ephemeral=True
+                                                    )
+        if botid in blocked:
+            await interaction.response.send_message("bot is already in the blacklist",
+                                                    ephemeral=True
+                                                    )
 
-                    with open(blackfile, "at") as f:
-                        f.write("," + str(snow))
+            with open(blackfile, "at") as f:
+                f.write("," + str(snow))
 
-                await interaction.response.send_message(
-                    f"Added bot id: {snow} to blacklist.csv"
-                )
+        await interaction.response.send_message(
+            f"Added bot id: {snow} to blacklist.csv"
+            ephemeral=True
+            )
 
 @bot.tree.command(
     name="status",
