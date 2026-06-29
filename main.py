@@ -22,6 +22,7 @@ def blacklistedids(file="./blacklist.csv"):
     except FileNotFoundError:
         return []
 
+
 def checkimage(url):
     ext = url.split(".")[-1].split("?")[0].lower()
     filename = "temp"+"."+ext
@@ -45,7 +46,7 @@ def checkimage(url):
         try:
             if f.read() == open("pp.png", "rb").read():
                 results = 1
-            elif f.read() == open("ppsamp.png", "rb").read():
+            elif f.read() == open("dabreast.jpg", "rb").read():
                 results = 1
         except FileNotFoundError:
             pass
@@ -63,6 +64,7 @@ def checkimage(url):
         pass
     return final
 
+
 async def system(cmd):
     await asyncio.create_subprocess_shell(
     cmd,
@@ -70,18 +72,22 @@ async def system(cmd):
     stderr=asyncio.subprocess.DEVNULL
     )
 
+
 nsfwcount = 0
 blackfile = "./blacklist.csv"
 blocked = blacklistedids(blackfile)
 bot_owner = None
 last_interaction_user = None
 nsfwthreshold = 0.2
-# Bot Setup
+net = Model()
+
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+
 def is_owner(interaction: discord.Interaction) -> bool:
     return interaction.user == bot_owner
+
 
 # Slash Commands
 @bot.tree.command(
@@ -103,14 +109,14 @@ async def suggest(interaction: discord.Interaction, bot_id: str):
             f.write(str(bot_id) + "\n")
             await bot_owner.send(bot_id)
             await interaction.response.send_message(
-                f"Added bot id: {bot_id} to suggestions.txt", ephemeral=True
+                r"<:clueless:1515375997262758001>", ephemeral=True
             )
+
 
 @bot.tree.command(
     name="bm",
     description="owner only"
     )
-
 @app_commands.check(is_owner)
 async def add(interaction: discord.Interaction,  snow: str):
     if interaction.user != bot_owner:
@@ -133,9 +139,10 @@ async def add(interaction: discord.Interaction,  snow: str):
                 f.write("," + str(snow))
 
         await interaction.response.send_message(
-            f"Added bot id: {snow} to blacklist.csv"
+            f"Added bot id: {snow} to blacklist.csv",
             ephemeral=True
             )
+
 
 @bot.tree.command(
     name="status",
@@ -148,7 +155,8 @@ async def status(interaction: discord.Interaction):
 
 @bot.tree.command(
     name="remall",
-    description="deletes all messages")
+    description="deletes all messages"
+    )
 async def remall(interaction: discord.Interaction, user: discord.Member):
     if interaction.user.guild_permissions.manage_messages:
         def isbyuser(m):
@@ -162,6 +170,7 @@ async def remall(interaction: discord.Interaction, user: discord.Member):
         await interaction.response.send_message(
             "You dont have permission to use this command",
             ephemeral=True)
+
 
 @bot.tree.command(
     name="purge",
@@ -188,6 +197,7 @@ async def sc(interaction: discord.Interaction):
         "https://github.com/oghatmake1/oghm-bot", 
         ephemeral=True)
 
+
 # Events
 @bot.event
 async def on_ready():
@@ -197,6 +207,7 @@ async def on_ready():
     bot_owner = app_info.owner
     print(f'Logged in as {bot.user} (ID: {bot.user.id})')
 
+
 @bot.event
 async def on_member_join(member):
     if member.id in blocked and member.bot and member.id != ctx.guild.owner_id:
@@ -204,6 +215,7 @@ async def on_member_join(member):
             f"Kicked a possible raid bot ({member}) — check audit logs"
         )
         await member.kick(reason="Possible Raid Bot")
+
 
 @bot.event
 async def on_message(message):
@@ -267,10 +279,12 @@ async def on_error(event_method, *args, **kwargs):
     # Optional: print locally too
     print(f"Error in event {event_method}:\n{tb}")
 
+
 async def on_member_update(_, after):
     if checkimage(after.avatar.url):
         await after.guild.owner.send(
                 "Possible NSFW avatar on " + after.name)
+
 
 async def on_interaction(interaction: discord.Interaction):
     global last_interaction_user
